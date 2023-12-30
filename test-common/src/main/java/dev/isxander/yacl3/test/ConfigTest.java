@@ -72,6 +72,23 @@ public class ConfigTest {
     @SerialEntry
     public int scrollingSlider = 0;
 
+    @SerialEntry
+    public SubClass subClass = new SubClass();
+
+    @SerialEntry
+    public static class SubClass {
+        @SerialEntry
+        public boolean booleanToggle = false;
+        @SerialEntry(comment = "This is a comment!")
+        public int intSlider = 0;
+        @SerialEntry
+        public double doubleSlider = 0;
+        @SerialEntry
+        public Alphabet enumOption = Alphabet.A;
+        @SerialEntry
+        public String stringOptions = "Banana";
+    }
+
     public enum Alphabet {
         A, B, C
     }

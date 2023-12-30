@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * into an auto-generated option.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.TYPE})
 public @interface SerialEntry {
     /**
      * The serial name of the field.

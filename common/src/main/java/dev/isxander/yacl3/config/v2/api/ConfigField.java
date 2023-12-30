@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /**
  * Represents a field in a config class.
- * This is used to get all metadata on a field,
+ * This is used to get all the metadata on a field,
  * and access the field and its default value.
  *
  * @param <T> the field's type

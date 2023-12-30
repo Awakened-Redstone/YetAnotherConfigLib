@@ -37,6 +37,12 @@ public interface ConfigClassHandler<T> {
      */
     ConfigField<?>[] fields();
 
+    void registerSubclass(Class<?> subclass, Object instance, Object defaults);
+
+    boolean hasSubclass(Class<?> subclass);
+
+    ConfigField<?>[] subclassFields(Class<?> subclass);
+
     /**
      * The unique identifier of this config handler.
      */

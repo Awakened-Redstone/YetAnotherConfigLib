@@ -15,10 +15,7 @@ import org.apache.commons.lang3.Validate;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,6 +25,7 @@ public class ConfigClassHandlerImpl<T> implements ConfigClassHandler<T> {
     private final boolean supportsAutoGen;
     private final ConfigSerializer<T> serializer;
     private final ConfigFieldImpl<?>[] fields;
+    private final Map<Class, ConfigFieldImpl<?>[]> subClasses = new HashMap<>();
 
     private T instance;
     private final T defaults;
@@ -46,12 +44,21 @@ public class ConfigClassHandlerImpl<T> implements ConfigClassHandler<T> {
         this.instance = createNewObject();
         this.defaults = createNewObject();
 
-        this.fields = Arrays.stream(configClass.getDeclaredFields())
-                .peek(field -> field.setAccessible(true))
-                .filter(field -> field.isAnnotationPresent(SerialEntry.class) || field.isAnnotationPresent(AutoGen.class))
-                .map(field -> new ConfigFieldImpl<>(new ReflectionFieldAccess<>(field, instance), new ReflectionFieldAccess<>(field, defaults), this, field.getAnnotation(SerialEntry.class), field.getAnnotation(AutoGen.class)))
-                .toArray(ConfigFieldImpl[]::new);
+        this.fields = getFields(configClass, instance, defaults);
         this.serializer = serializerFactory.apply(this);
+    }
+
+    private ConfigFieldImpl<?>[] getFields(Class<?> clazz, Object instance, Object defaults) {
+        return Arrays.stream(clazz.getDeclaredFields())
+          .peek(field -> field.setAccessible(true))
+          .filter(field -> (field.isAnnotationPresent(SerialEntry.class) || field.isAnnotationPresent(AutoGen.class)) && field.getType() != clazz)
+          .map(field -> new ConfigFieldImpl<>(new ReflectionFieldAccess<>(field, instance), new ReflectionFieldAccess<>(field, defaults), this, field.getAnnotation(SerialEntry.class), field.getAnnotation(AutoGen.class)))
+          .peek(field -> {
+              if (field.defaultAccess().typeClass().isAnnotationPresent(SerialEntry.class)) {
+                  registerSubclass(field.defaultAccess().typeClass(), field.access().get(), field.defaultAccess().get());
+              }
+          })
+          .toArray(ConfigFieldImpl[]::new);
     }
 
     @Override
@@ -72,6 +79,23 @@ public class ConfigClassHandlerImpl<T> implements ConfigClassHandler<T> {
     @Override
     public ConfigFieldImpl<?>[] fields() {
         return this.fields;
+    }
+
+    @Override
+    public void registerSubclass(Class<?> subclass, Object instance, Object defaults) {
+        if (!subClasses.containsKey(subclass) && subclass.isAnnotationPresent(SerialEntry.class)) {
+            subClasses.put(subclass, getFields(subclass, instance, defaults));
+        }
+    }
+
+    @Override
+    public boolean hasSubclass(Class<?> subclass) {
+        return subClasses.containsKey(subclass);
+    }
+
+    @Override
+    public ConfigField<?>[] subclassFields(Class<?> subclass) {
+        return subClasses.get(subclass);
     }
 
     @Override

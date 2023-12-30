@@ -54,28 +54,10 @@ public class GsonConfigSerializer<T> extends ConfigSerializer<T> {
             jsonWriter.beginObject();
 
             for (ConfigField<?> field : config.fields()) {
-                SerialField serial = field.serial().orElse(null);
-                if (serial == null) continue;
-
-                if (!json5 && serial.comment().isPresent() && YACLPlatform.isDevelopmentEnv()) {
-                    YACLConstants.LOGGER.warn("Found comment in config field '{}', but json5 is not enabled. Enable it with `.setJson5(true)` on the `GsonConfigSerializerBuilder`. Comments will not be serialized. This warning is only visible in development environments.", serial.serialName());
-                }
-                jsonWriter.comment(serial.comment().orElse(null));
-
-                jsonWriter.name(serial.serialName());
-
-                JsonElement element;
                 try {
-                    element = gson.toJsonTree(field.access().get(), field.access().type());
+                    writeField(jsonWriter, gsonWriter, field);
                 } catch (Exception e) {
-                    YACLConstants.LOGGER.error("Failed to serialize config field '{}'. Serializing as null.", serial.serialName(), e);
-                    jsonWriter.nullValue();
-                    continue;
-                }
-
-                try {
-                    gson.toJson(element, gsonWriter);
-                } catch (Exception e) {
+                    SerialField serial = field.serial().orElseThrow();
                     YACLConstants.LOGGER.error("Failed to serialize config field '{}'. Due to the error state this JSON writer cannot continue safely and the save will be abandoned.", serial.serialName(), e);
                     return;
                 }
@@ -89,6 +71,47 @@ public class GsonConfigSerializer<T> extends ConfigSerializer<T> {
         } catch (IOException e) {
             YACLConstants.LOGGER.error("Failed to serialize config class '{}'.", config.configClass().getSimpleName(), e);
         }
+    }
+
+    private void writeField(JsonWriter jsonWriter, GsonWriter gsonWriter, ConfigField<?> field) throws IOException {
+        SerialField serial = field.serial().orElse(null);
+        if (serial == null) return;
+
+        if (!json5 && serial.comment().isPresent() && YACLPlatform.isDevelopmentEnv()) {
+            YACLConstants.LOGGER.warn("Found comment in config field '{}', but json5 is not enabled. Enable it with `.setJson5(true)` on the `GsonConfigSerializerBuilder`. Comments will not be serialized. This warning is only visible in development environments.", serial.serialName());
+        }
+        jsonWriter.comment(serial.comment().orElse(null));
+
+        jsonWriter.name(serial.serialName());
+
+        if (toJson(jsonWriter, gsonWriter, field)) return;
+
+        JsonElement element;
+        try {
+            element = gson.toJsonTree(field.access().get(), field.access().type());
+        } catch (Exception e) {
+            YACLConstants.LOGGER.error("Failed to serialize config field '{}'. Serializing as null.", serial.serialName(), e);
+            jsonWriter.nullValue();
+            return;
+        }
+
+        try {
+            gson.toJson(element, gsonWriter);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+    }
+
+    private boolean toJson(JsonWriter jsonWriter, GsonWriter gsonWriter, ConfigField<?> field) throws IOException {
+        if (config.hasSubclass(field.defaultAccess().typeClass())) {
+            jsonWriter.beginObject();
+            for (ConfigField<?> subclassField : config.subclassFields(field.defaultAccess().typeClass())) {
+                writeField(jsonWriter, gsonWriter, subclassField);
+            }
+            jsonWriter.endObject();
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -126,6 +149,7 @@ public class GsonConfigSerializer<T> extends ConfigSerializer<T> {
                 FieldAccess<?> bufferAccess = bufferAccessMap.get(field);
                 SerialField serial = field.serial().orElse(null);
                 if (serial == null) continue;
+                //TODO
 
                 JsonElement element;
                 try {
@@ -158,12 +182,28 @@ public class GsonConfigSerializer<T> extends ConfigSerializer<T> {
             for (String missingField : missingFields) {
                 if (fieldMap.get(missingField).serial().orElseThrow().required()) {
                     dirty = true;
-                    YACLConstants.LOGGER.warn("Missing required config field '{}''. Re-saving as default.", missingField);
+                    YACLConstants.LOGGER.warn("Missing required config field '{}'. Re-saving as default.", missingField);
                 }
             }
         }
 
         return dirty ? LoadResult.DIRTY : LoadResult.SUCCESS;
+    }
+
+    private void readField() {
+
+    }
+
+    private boolean fromJson(JsonReader jsonReader, GsonReader gsonReader, ConfigField<?> field) throws IOException {
+        if (config.hasSubclass(field.defaultAccess().typeClass())) {
+            jsonReader.beginObject();
+            for (ConfigField<?> subclassField : config.subclassFields(field.defaultAccess().typeClass())) {
+                readField();
+            }
+            jsonReader.endObject();
+            return true;
+        }
+        return false;
     }
 
     @Override

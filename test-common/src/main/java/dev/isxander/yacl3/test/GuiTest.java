@@ -391,6 +391,61 @@ public class GuiTest {
                                         .build())
                                 .build())
                         .category(ConfigCategory.createBuilder()
+                                .name(Component.literal("Subclass Test"))
+                                .option(LabelOption.create(Component.literal("This is a test category!")))
+                                    .group(OptionGroup.createBuilder()
+                                      .name(Component.literal("Sub class group"))
+                                      .option(Option.<Boolean>createBuilder()
+                                        .name(Component.literal("Boolean Toggle"))
+                                        .binding(
+                                          defaults.subClass.booleanToggle,
+                                          () -> config.subClass.booleanToggle,
+                                          value -> config.subClass.booleanToggle = value
+                                        )
+                                        .customController(TickBoxController::new)
+                                        .build())
+                                      .option(Option.<Integer>createBuilder()
+                                        .name(Component.literal("Int Slider"))
+                                        .instant(true)
+                                        .binding(
+                                          defaults.subClass.intSlider,
+                                          () -> config.subClass.intSlider,
+                                          value -> config.subClass.intSlider = value
+                                        )
+                                        .customController(opt -> new IntegerSliderController(opt, 0, 3, 1))
+                                        .build())
+                                      .option(Option.<Double>createBuilder()
+                                        .name(Component.literal("Double Slider"))
+                                        .binding(
+                                          defaults.subClass.doubleSlider,
+                                          () -> config.subClass.doubleSlider,
+                                          (value) -> config.subClass.doubleSlider = value
+                                        )
+                                        .customController(opt -> new DoubleSliderController(opt, 0, 3, 0.05))
+                                        .build())
+                                      .option(Option.<ConfigTest.Alphabet>createBuilder()
+                                        .name(Component.literal("Enum Cycler"))
+                                        .binding(
+                                          defaults.subClass.enumOption,
+                                          () -> config.subClass.enumOption,
+                                          (value) -> config.subClass.enumOption = value
+                                        )
+                                        .customController(opt -> new EnumController<>(opt, ConfigTest.Alphabet.class))
+                                        .build())
+                                      .option(Option.<String>createBuilder()
+                                        .name(Component.literal("String Dropdown"))
+                                        .binding(
+                                          defaults.subClass.stringOptions,
+                                          () -> config.subClass.stringOptions,
+                                          (value) -> config.subClass.stringOptions = value
+                                        )
+                                        .controller(opt -> DropdownStringControllerBuilder.create(opt)
+                                          .values("Apple", "Banana", "Cherry", "Date")
+                                        )
+                                        .build())
+                                      .build())
+                                .build())
+                        .category(ConfigCategory.createBuilder()
                                 .name(Component.literal("Category Test"))
                                 .option(LabelOption.create(Component.literal("This is a test category!")))
                                 .build())
