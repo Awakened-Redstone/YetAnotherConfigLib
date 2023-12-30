@@ -1,6 +1,7 @@
 package dev.isxander.yacl3.config.v2.impl;
 
 import dev.isxander.yacl3.api.*;
+import dev.isxander.yacl3.config.ConfigEntry;
 import dev.isxander.yacl3.config.v2.api.*;
 import dev.isxander.yacl3.config.v2.api.autogen.AutoGen;
 import dev.isxander.yacl3.config.v2.api.autogen.OptionAccess;
@@ -44,21 +45,29 @@ public class ConfigClassHandlerImpl<T> implements ConfigClassHandler<T> {
         this.instance = createNewObject();
         this.defaults = createNewObject();
 
-        this.fields = getFields(configClass, instance, defaults);
+        detectOldAnnotation(configClass.getDeclaredFields());
+
+        this.fields = discoverFields(configClass, instance, defaults)
         this.serializer = serializerFactory.apply(this);
     }
 
-    private ConfigFieldImpl<?>[] getFields(Class<?> clazz, Object instance, Object defaults) {
+    private ConfigFieldImpl<?>[] discoverFields(Class<?> clazz, Object instance, Object defaults) {
         return Arrays.stream(clazz.getDeclaredFields())
-          .peek(field -> field.setAccessible(true))
-          .filter(field -> (field.isAnnotationPresent(SerialEntry.class) || field.isAnnotationPresent(AutoGen.class)) && field.getType() != clazz)
-          .map(field -> new ConfigFieldImpl<>(new ReflectionFieldAccess<>(field, instance), new ReflectionFieldAccess<>(field, defaults), this, field.getAnnotation(SerialEntry.class), field.getAnnotation(AutoGen.class)))
-          .peek(field -> {
-              if (field.defaultAccess().typeClass().isAnnotationPresent(SerialEntry.class)) {
-                  registerSubclass(field.defaultAccess().typeClass(), field.access().get(), field.defaultAccess().get());
-              }
-          })
-          .toArray(ConfigFieldImpl[]::new);
+                .peek(field -> field.setAccessible(true))
+                .filter(field -> field.isAnnotationPresent(SerialEntry.class) || field.isAnnotationPresent(AutoGen.class))
+                .map(field -> new ConfigFieldImpl<>(
+                        new ReflectionFieldAccess<>(field, instance),
+                        new ReflectionFieldAccess<>(field, defaults),
+                        this,
+                        field.getAnnotation(SerialEntry.class),
+                        field.getAnnotation(AutoGen.class)
+                ))
+                .peek(field -> {
+                    if (field.defaultAccess().typeClass().isAnnotationPresent(SerialEntry.class)) {
+                        registerSubclass(field.defaultAccess().typeClass(), field.access().get(), field.defaultAccess().get());
+                    }
+                })
+                .toArray(ConfigFieldImpl[]::new);
     }
 
     @Override
@@ -84,7 +93,7 @@ public class ConfigClassHandlerImpl<T> implements ConfigClassHandler<T> {
     @Override
     public void registerSubclass(Class<?> subclass, Object instance, Object defaults) {
         if (!subClasses.containsKey(subclass) && subclass.isAnnotationPresent(SerialEntry.class)) {
-            subClasses.put(subclass, getFields(subclass, instance, defaults));
+            subClasses.put(subclass, discoverFields(subclass, instance, defaults));
         }
     }
 
@@ -234,6 +243,13 @@ public class ConfigClassHandlerImpl<T> implements ConfigClassHandler<T> {
         } catch (Exception e) {
             throw new YACLAutoGenException("Failed to create instance of config class '%s' with no-args constructor.".formatted(configClass.getName()), e);
         }
+    }
+
+    private void detectOldAnnotation(Field[] fields) {
+        boolean hasOldConfigEntry = Arrays.stream(fields)
+                .anyMatch(field -> field.isAnnotationPresent(ConfigEntry.class));
+
+        Validate.isTrue(!hasOldConfigEntry, "At least one field in %s is still annotated with the deprecated @ConfigEntry annotation. This is incorrect. Use @SerialEntry.".formatted(configClass.getName()));
     }
 
     public static class BuilderImpl<T> implements Builder<T> {

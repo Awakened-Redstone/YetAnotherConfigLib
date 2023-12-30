@@ -127,12 +127,10 @@ public class GuiTest {
                                         .name(Component.literal("Slider Controllers"))
                                         .option(Option.<Integer>createBuilder()
                                                 .name(Component.literal("Int Slider"))
-                                                .instant(true)
                                                 .binding(
                                                         defaults.intSlider,
                                                         () -> config.intSlider,
                                                         value -> config.intSlider = value
-
                                                 )
                                                 .customController(opt -> new IntegerSliderController(opt, 0, 3, 1))
                                                 .build())
@@ -284,7 +282,7 @@ public class GuiTest {
                                         .name(Component.literal("Options that aren't really options"))
                                         .option(ButtonOption.createBuilder()
                                                 .name(Component.literal("Button \"Option\""))
-                                                .action((screen, opt) -> SystemToast.add(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.TUTORIAL_HINT, Component.literal("Button Pressed"), Component.literal("Button option was invoked!")))
+                                                .action((screen, opt) -> SystemToast.add(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION, Component.literal("Button Pressed"), Component.literal("Button option was invoked!")))
                                                 .build())
                                         .option(LabelOption.create(
                                                 Component.empty()
